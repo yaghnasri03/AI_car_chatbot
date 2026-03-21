@@ -1,9 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { FileText, MessageSquare, Search, TrendingUp, Plus, AlertTriangle, CheckCircle } from 'lucide-react'
+import { FileText, Upload, MessageSquare, Search, BarChart2, AlertTriangle, TrendingUp, Clock } from 'lucide-react'
 import { contractsApi } from '../api'
 import { useAuthStore } from '../store/authStore'
-import FairnessScore from '../components/ui/FairnessScore'
 import Spinner from '../components/ui/Spinner'
 
 export default function Dashboard() {
@@ -15,99 +14,102 @@ export default function Dashboard() {
 
   const contracts = data?.contracts ?? []
   const extracted = contracts.filter((c) => c.doc_status === 'extracted')
+  const redFlags = extracted.filter((c) => c.red_flag_level === 'high').length
   const avgScore = extracted.length
-    ? extracted.reduce((s, c) => s + (c.fairness_score ?? 0), 0) / extracted.length
-    : null
+    ? Math.round(extracted.reduce((a, c) => a + (c.fairness_score ?? 0), 0) / extracted.length)
+    : 0
 
-  const stats = [
-    { label: 'Contracts Uploaded', value: contracts.length, icon: FileText, color: 'text-blue-600 bg-blue-50' },
-    { label: 'Analyzed', value: extracted.length, icon: CheckCircle, color: 'text-green-600 bg-green-50' },
-    { label: 'Red Flags Found', value: contracts.filter((c) => c.red_flag_level === 'high').length, icon: AlertTriangle, color: 'text-red-600 bg-red-50' },
-    { label: 'Avg Fairness Score', value: avgScore ? `${Math.round(avgScore)}/100` : '—', icon: TrendingUp, color: 'text-purple-600 bg-purple-50' },
-  ]
+  const firstName = user?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'there'
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
-      {/* Header */}
+    <div className="max-w-6xl mx-auto px-6 py-8">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900">
-          Welcome back, {user?.full_name?.split(' ')[0] || 'there'} 👋
+        <h1 className="text-3xl font-bold mb-1" style={{color: '#ffffff'}}>
+          Hey, {firstName}! 👋
         </h1>
-        <p className="text-slate-500 mt-1">Here's an overview of your car contract activity.</p>
+        <p style={{color: '#94a3b8'}}>Here's your contract activity overview</p>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {stats.map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="card p-5">
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 ${color}`}>
-              <Icon size={20} />
+        {[
+          { label: 'Contracts', value: contracts.length, icon: <FileText size={20} />, color: '#a78bfa', bg: 'rgba(109,40,217,0.2)' },
+          { label: 'Analyzed', value: extracted.length, icon: <TrendingUp size={20} />, color: '#34d399', bg: 'rgba(6,78,59,0.2)' },
+          { label: 'Red Flags', value: redFlags, icon: <AlertTriangle size={20} />, color: '#f87171', bg: 'rgba(127,29,29,0.2)' },
+          { label: 'Avg Score', value: extracted.length ? `${avgScore}/100` : '—', icon: <BarChart2 size={20} />, color: '#fbbf24', bg: 'rgba(113,63,18,0.2)' },
+        ].map((stat) => (
+          <div key={stat.label} style={{backgroundColor: '#1a1a2e', border: '1px solid rgba(109,40,217,0.2)', borderRadius: '1rem', padding: '1.25rem'}}>
+            <div style={{width: '2.5rem', height: '2.5rem', backgroundColor: stat.bg, borderRadius: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: stat.color, marginBottom: '0.75rem'}}>
+              {stat.icon}
             </div>
-            <p className="text-2xl font-bold text-slate-900">{value}</p>
-            <p className="text-sm text-slate-500 mt-0.5">{label}</p>
+            <p style={{fontSize: '1.5rem', fontWeight: '700', color: '#ffffff'}}>{stat.value}</p>
+            <p style={{fontSize: '0.875rem', color: '#94a3b8', marginTop: '0.25rem'}}>{stat.label}</p>
           </div>
         ))}
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <Link to="/contracts/upload" className="card p-6 hover:border-primary-300 transition-colors group">
-          <div className="w-10 h-10 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center mb-3 group-hover:bg-primary-100 transition-colors">
-            <Plus size={20} />
-          </div>
-          <h3 className="font-semibold text-slate-900">Upload Contract</h3>
-          <p className="text-sm text-slate-500 mt-1">Upload a lease or loan PDF for AI analysis</p>
-        </Link>
-        <Link to="/negotiate" className="card p-6 hover:border-primary-300 transition-colors group">
-          <div className="w-10 h-10 rounded-lg bg-green-50 text-green-600 flex items-center justify-center mb-3 group-hover:bg-green-100 transition-colors">
-            <MessageSquare size={20} />
-          </div>
-          <h3 className="font-semibold text-slate-900">Start Negotiating</h3>
-          <p className="text-sm text-slate-500 mt-1">Get AI-powered negotiation tips and messages</p>
-        </Link>
-        <Link to="/vin" className="card p-6 hover:border-primary-300 transition-colors group">
-          <div className="w-10 h-10 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center mb-3 group-hover:bg-orange-100 transition-colors">
-            <Search size={20} />
-          </div>
-          <h3 className="font-semibold text-slate-900">VIN Lookup</h3>
-          <p className="text-sm text-slate-500 mt-1">Check recalls, specs, and vehicle history</p>
-        </Link>
+      <div className="mb-8">
+        <h2 style={{fontSize: '1.125rem', fontWeight: '700', color: '#ffffff', marginBottom: '1rem'}}>Quick Actions</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[
+            { to: '/contracts/upload', icon: <Upload size={22} />, title: 'Upload Contract', desc: 'Analyze a new lease or loan PDF', color: '#a78bfa', bg: 'rgba(109,40,217,0.2)' },
+            { to: '/negotiate', icon: <MessageSquare size={22} />, title: 'AI Negotiation', desc: 'Get expert negotiation advice', color: '#34d399', bg: 'rgba(6,78,59,0.2)' },
+            { to: '/vin', icon: <Search size={22} />, title: 'VIN Lookup', desc: 'Check recalls and vehicle history', color: '#fbbf24', bg: 'rgba(113,63,18,0.2)' },
+          ].map((action) => (
+            <Link key={action.to} to={action.to} style={{backgroundColor: '#1a1a2e', border: '1px solid rgba(109,40,217,0.2)', borderRadius: '1rem', padding: '1.5rem', display: 'flex', alignItems: 'flex-start', gap: '1rem', textDecoration: 'none'}}>
+              <div style={{width: '3rem', height: '3rem', backgroundColor: action.bg, borderRadius: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: action.color, flexShrink: 0}}>
+                {action.icon}
+              </div>
+              <div>
+                <p style={{fontWeight: '700', color: '#ffffff', marginBottom: '0.25rem'}}>{action.title}</p>
+                <p style={{fontSize: '0.875rem', color: '#94a3b8'}}>{action.desc}</p>
+              </div>
+            </Link>
+          ))}
+        </div>
       </div>
 
-      {/* Recent Contracts */}
-      <div className="card">
-        <div className="flex items-center justify-between p-5 border-b border-slate-100">
-          <h2 className="font-semibold text-slate-900">Recent Contracts</h2>
-          <Link to="/contracts" className="text-sm text-primary-600 hover:underline">View all</Link>
+      <div>
+        <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem'}}>
+          <h2 style={{fontSize: '1.125rem', fontWeight: '700', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+            <Clock size={18} color="#a78bfa" /> Recent Contracts
+          </h2>
+          <Link to="/contracts" style={{color: '#a78bfa', fontSize: '0.875rem', textDecoration: 'none'}}>View all →</Link>
         </div>
+
         {isLoading ? (
-          <div className="flex justify-center py-12"><Spinner /></div>
+          <div style={{display: 'flex', justifyContent: 'center', padding: '2.5rem 0'}}><Spinner /></div>
         ) : contracts.length === 0 ? (
-          <div className="text-center py-12 text-slate-400">
-            <FileText size={40} className="mx-auto mb-3 opacity-40" />
-            <p>No contracts yet. Upload your first one!</p>
+          <div style={{backgroundColor: '#1a1a2e', border: '1px solid rgba(109,40,217,0.2)', borderRadius: '1rem', padding: '2.5rem', textAlign: 'center'}}>
+            <FileText size={40} color="#334155" style={{margin: '0 auto 0.75rem'}} />
+            <p style={{color: '#94a3b8', fontWeight: '500', marginBottom: '0.5rem'}}>No contracts yet</p>
+            <p style={{color: '#475569', fontSize: '0.875rem', marginBottom: '1.5rem'}}>Upload your first contract to get started</p>
+            <Link to="/contracts/upload" style={{display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', backgroundColor: '#7c3aed', color: 'white', borderRadius: '0.75rem', textDecoration: 'none', fontWeight: '600', fontSize: '0.875rem'}}>
+              <Upload size={16} /> Upload Contract
+            </Link>
           </div>
         ) : (
-          <div className="divide-y divide-slate-100">
-            {contracts.slice(0, 5).map((c) => (
-              <Link key={c.id} to={`/contracts/${c.id}`} className="flex items-center justify-between px-5 py-4 hover:bg-slate-50 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center">
-                    <FileText size={16} className="text-slate-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-slate-900">{c.dealer_offer_name || `Contract #${c.id}`}</p>
-                    <p className="text-xs text-slate-400">
-                      {c.contract_type?.toUpperCase() ?? 'UNKNOWN'} • {new Date(c.created_at).toLocaleDateString()}
+          <div style={{display: 'flex', flexDirection: 'column', gap: '0.75rem'}}>
+            {contracts.slice(0, 5).map((contract) => (
+              <Link key={contract.id} to={`/contracts/${contract.id}`} style={{backgroundColor: '#1a1a2e', border: '1px solid rgba(109,40,217,0.2)', borderRadius: '1rem', padding: '1rem', display: 'flex', alignItems: 'center', gap: '1rem', textDecoration: 'none'}}>
+                <div style={{width: '2.5rem', height: '2.5rem', borderRadius: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, backgroundColor: contract.doc_status === 'extracted' ? 'rgba(6,78,59,0.3)' : contract.doc_status === 'failed' ? 'rgba(127,29,29,0.3)' : 'rgba(113,63,18,0.3)'}}>
+                  <FileText size={18} color={contract.doc_status === 'extracted' ? '#34d399' : contract.doc_status === 'failed' ? '#f87171' : '#fbbf24'} />
+                </div>
+                <div style={{flex: 1, minWidth: 0}}>
+                  <p style={{fontWeight: '600', color: '#ffffff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
+                    {contract.dealer_offer_name || `Contract #${contract.id}`}
+                  </p>
+                  <p style={{fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem'}}>
+                    {contract.contract_type?.toUpperCase()} • {new Date(contract.created_at).toLocaleDateString()}
+                  </p>
+                </div>
+                {contract.fairness_score != null && (
+                  <div style={{textAlign: 'center', flexShrink: 0}}>
+                    <p style={{fontSize: '1.25rem', fontWeight: '800', color: contract.fairness_score >= 70 ? '#34d399' : contract.fairness_score >= 50 ? '#fbbf24' : '#f87171'}}>
+                      {contract.fairness_score}
                     </p>
+                    <p style={{fontSize: '0.75rem', color: '#475569'}}>score</p>
                   </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  {c.fairness_score && <FairnessScore score={c.fairness_score} size="sm" />}
-                  <span className={`badge-${c.doc_status === 'extracted' ? 'green' : c.doc_status === 'failed' ? 'red' : 'yellow'}`}>
-                    {c.doc_status}
-                  </span>
-                </div>
+                )}
               </Link>
             ))}
           </div>

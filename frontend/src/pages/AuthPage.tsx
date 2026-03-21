@@ -21,14 +21,14 @@ export default function AuthPage() {
     try {
       if (isLogin) {
         const res = await authApi.login(email, password)
-        setAuth(res.token, res.user)
+        setAuth(res.user, res.access_token)
         toast.success('Welcome back!')
         navigate('/dashboard')
       } else {
         if (!fullName) { toast.error('Please enter your name'); return }
         await authApi.register(email, password, fullName)
         const res = await authApi.login(email, password)
-        setAuth(res.token, res.user)
+        setAuth(res.user, res.access_token)
         toast.success('Account created!')
         navigate('/dashboard')
       }
