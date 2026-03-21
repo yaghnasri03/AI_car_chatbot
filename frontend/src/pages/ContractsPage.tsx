@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { FileText, Trash2, Plus, AlertTriangle } from 'lucide-react'
+import { FileText, Trash2, Plus, AlertTriangle, Upload } from 'lucide-react'
 import { contractsApi } from '../api'
 import { Contract } from '../types'
 import toast from 'react-hot-toast'
@@ -18,7 +18,7 @@ export default function ContractsPage() {
     mutationFn: (id: number) => contractsApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contracts'] })
-      toast.success('Contract deleted successfully')
+      toast.success('Contract deleted!')
     },
     onError: () => {
       toast.error('Failed to delete contract')
@@ -38,49 +38,55 @@ export default function ContractsPage() {
   const contracts = data?.contracts ?? []
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+    <div className="max-w-5xl mx-auto px-6 py-8">
+
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">My Contracts</h1>
+          <h1 className="text-2xl font-bold text-white">My Contracts</h1>
           <p className="text-slate-500 text-sm mt-1">{contracts.length} contract{contracts.length !== 1 ? 's' : ''} uploaded</p>
         </div>
         <Link to="/contracts/upload" className="btn-primary">
-          <Plus size={16} /> Upload New
+          <Plus size={16} /> New Contract
         </Link>
       </div>
 
       {contracts.length === 0 ? (
-        <div className="card p-12 text-center">
-          <FileText size={48} className="mx-auto mb-4 text-slate-300" />
-          <h3 className="font-semibold text-slate-600 mb-2">No contracts yet</h3>
-          <p className="text-slate-400 text-sm mb-6">Upload your first car lease or loan contract to get started</p>
+        <div className="card p-16 text-center">
+          <div className="w-20 h-20 bg-purple-900/30 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <Upload size={36} className="text-purple-400" />
+          </div>
+          <h3 className="font-bold text-white text-lg mb-2">No contracts yet</h3>
+          <p className="text-slate-500 text-sm mb-8 max-w-sm mx-auto">Upload your first car lease or loan contract to get an AI powered analysis</p>
           <Link to="/contracts/upload" className="btn-primary">
             <Plus size={16} /> Upload Contract
           </Link>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 gap-4">
           {contracts.map((contract: Contract) => (
             <Link
               key={contract.id}
               to={`/contracts/${contract.id}`}
-              className="card p-5 flex items-center gap-4 hover:shadow-md transition-shadow"
+              className="card p-5 flex items-center gap-4 hover:border-purple-700/50 transition-all group"
             >
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
-                contract.doc_status === 'extracted' ? 'bg-green-100' :
-                contract.doc_status === 'failed' ? 'bg-red-100' : 'bg-yellow-100'
+              {/* Icon */}
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
+                contract.doc_status === 'extracted' ? 'bg-emerald-900/40' :
+                contract.doc_status === 'failed' ? 'bg-red-900/40' : 'bg-yellow-900/40'
               }`}>
-                <FileText size={20} className={
-                  contract.doc_status === 'extracted' ? 'text-green-600' :
-                  contract.doc_status === 'failed' ? 'text-red-600' : 'text-yellow-600'
+                <FileText size={22} className={
+                  contract.doc_status === 'extracted' ? 'text-emerald-400' :
+                  contract.doc_status === 'failed' ? 'text-red-400' : 'text-yellow-400'
                 } />
               </div>
 
+              {/* Info */}
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-slate-900 truncate">
+                <p className="font-semibold text-white truncate text-base">
                   {contract.dealer_offer_name || `Contract #${contract.id}`}
                 </p>
-                <div className="flex items-center gap-2 mt-1">
+                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                   <span className={`badge-${
                     contract.doc_status === 'extracted' ? 'green' :
                     contract.doc_status === 'failed' ? 'red' : 'yellow'
@@ -88,34 +94,42 @@ export default function ContractsPage() {
                     {contract.doc_status}
                   </span>
                   {contract.contract_type && (
-                    <span className="text-xs text-slate-400 uppercase">{contract.contract_type}</span>
+                    <span className="text-xs text-slate-500 uppercase font-medium bg-slate-800 px-2 py-0.5 rounded-full">
+                      {contract.contract_type}
+                    </span>
                   )}
-                  <span className="text-xs text-slate-400">
+                  <span className="text-xs text-slate-600">
                     {new Date(contract.created_at).toLocaleDateString()}
                   </span>
                 </div>
               </div>
 
+              {/* Score */}
               {contract.fairness_score != null && (
-                <div className="text-center shrink-0">
-                  <div className={`text-lg font-bold ${
-                    contract.fairness_score >= 70 ? 'text-green-600' :
-                    contract.fairness_score >= 50 ? 'text-yellow-600' : 'text-red-600'
+                <div className="text-center shrink-0 px-3">
+                  <div className={`text-2xl font-black ${
+                    contract.fairness_score >= 70 ? 'text-emerald-400' :
+                    contract.fairness_score >= 50 ? 'text-yellow-400' : 'text-red-400'
                   }`}>
                     {contract.fairness_score}
                   </div>
-                  <div className="text-xs text-slate-400">score</div>
+                  <div className="text-xs text-slate-600 mt-0.5">/ 100</div>
                 </div>
               )}
 
+              {/* Red flag */}
               {contract.red_flag_level === 'high' && (
-                <AlertTriangle size={18} className="text-red-500 shrink-0" />
+                <div className="flex items-center gap-1 bg-red-900/30 border border-red-800/40 rounded-xl px-3 py-1.5 shrink-0">
+                  <AlertTriangle size={14} className="text-red-400" />
+                  <span className="text-xs text-red-400 font-medium">Risk</span>
+                </div>
               )}
 
+              {/* Delete */}
               <button
                 onClick={(e) => handleDelete(e, contract.id)}
                 disabled={deleteMutation.isPending}
-                className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0"
+                className="p-2.5 text-slate-600 hover:text-red-400 hover:bg-red-900/20 rounded-xl transition-all shrink-0"
               >
                 {deleteMutation.isPending ? <Spinner className="w-4 h-4" /> : <Trash2 size={16} />}
               </button>

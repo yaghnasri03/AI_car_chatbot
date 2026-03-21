@@ -1,14 +1,20 @@
 import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDropzone } from 'react-dropzone'
-import { Upload, FileText, X, CheckCircle } from 'lucide-react'
+import { Upload, FileText, X, CheckCircle, Zap } from 'lucide-react'
 import { contractsApi } from '../api'
 import toast from 'react-hot-toast'
 import Spinner from '../components/ui/Spinner'
 
+const ALLOWED_MIME: Record<string, string[]> = {
+  'application/pdf': ['.pdf'],
+  'image/jpeg': ['.jpg', '.jpeg'],
+  'image/png': ['.png'],
+  'text/plain': ['.txt'],
+}
+
 export default function UploadPage() {
   const [file, setFile] = useState<File | null>(null)
-  const [offerName, setOfferName] = useState('')
   const [uploading, setUploading] = useState(false)
   const navigate = useNavigate()
 
@@ -18,20 +24,17 @@ export default function UploadPage() {
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: {
-      'application/pdf': ['.pdf'],
-      'image/*': ['.jpg', '.jpeg', '.png'],
-      'text/plain': ['.txt'],
-    },
+    accept: ALLOWED_MIME,
     maxFiles: 1,
+    maxSize: 20 * 1024 * 1024,
   })
 
   const handleUpload = async () => {
     if (!file) return
     setUploading(true)
     try {
-      const contract = await contractsApi.upload(file, offerName || file.name)
-      toast.success('Contract uploaded! AI analysis starting...')
+      const contract = await contractsApi.upload(file)
+      toast.success('Contract uploaded! Analyzing...')
       navigate(`/contracts/${contract.id}`)
     } catch {
       toast.error('Upload failed. Please try again.')
@@ -41,102 +44,115 @@ export default function UploadPage() {
   }
 
   return (
-    <div className="p-8 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold text-slate-900 mb-2">Upload Contract</h1>
-      <p className="text-slate-500 mb-8">
-        Upload your car lease or loan contract for AI analysis.
-        We accept all common formats.
-      </p>
+    <div className="max-w-2xl mx-auto px-6 py-8">
+
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+          <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center">
+            <Upload size={16} className="text-white" />
+          </div>
+          Upload Contract
+        </h1>
+        <p className="text-slate-500 text-sm mt-1">Upload your car lease or loan contract for AI analysis</p>
+      </div>
 
       {/* Dropzone */}
       <div
         {...getRootProps()}
-        className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-colors mb-6 ${
+        className={`card p-12 text-center cursor-pointer transition-all border-2 border-dashed ${
           isDragActive
-            ? 'border-primary-500 bg-primary-50'
-            : 'border-slate-300 hover:border-primary-400 hover:bg-slate-50'
+            ? 'border-purple-500 bg-purple-900/20'
+            : file
+            ? 'border-emerald-600/50 bg-emerald-900/10'
+            : 'border-purple-900/50 hover:border-purple-700/70 hover:bg-purple-900/10'
         }`}
       >
         <input {...getInputProps()} />
+
         {file ? (
-          <div className="flex items-center justify-center gap-3">
-            <CheckCircle size={28} className="text-green-500" />
-            <div className="text-left">
-              <p className="font-medium text-slate-900">{file.name}</p>
-              <p className="text-sm text-slate-400">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+          <div>
+            <div className="w-16 h-16 bg-emerald-900/30 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-emerald-700/40">
+              <CheckCircle size={32} className="text-emerald-400" />
             </div>
+            <p className="font-bold text-white text-lg mb-1">{file.name}</p>
+            <p className="text-slate-500 text-sm">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
             <button
               onClick={(e) => { e.stopPropagation(); setFile(null) }}
-              className="ml-2 p-1 text-slate-400 hover:text-red-500 rounded"
+              className="mt-4 flex items-center gap-1 text-red-400 hover:text-red-300 text-sm mx-auto transition-colors"
             >
-              <X size={16} />
+              <X size={14} /> Remove file
             </button>
           </div>
         ) : (
-          <>
-            <Upload size={40} className="mx-auto mb-3 text-slate-300" />
-            <p className="font-medium text-slate-600">
-              {isDragActive ? 'Drop it here!' : 'Drag & drop your contract'}
+          <div>
+            <div className="w-16 h-16 bg-purple-900/30 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-purple-800/40">
+              <Upload size={32} className={isDragActive ? 'text-purple-300' : 'text-purple-400'} />
+            </div>
+            <p className="font-bold text-white text-lg mb-2">
+              {isDragActive ? 'Drop your file here!' : 'Drag & drop your contract'}
             </p>
-            <p className="text-sm text-slate-400 mt-1">
-              or click to browse
-            </p>
-          </>
+            <p className="text-slate-500 text-sm mb-4">or click to browse files</p>
+            <p className="text-slate-600 text-xs">Supports PDF, JPG, PNG, TXT • Max 20MB</p>
+          </div>
         )}
       </div>
 
-      {/* Accepted formats */}
-      <div className="grid grid-cols-4 gap-2 mb-6">
+      {/* Supported formats */}
+      <div className="grid grid-cols-4 gap-3 mt-4">
         {[
-          { ext: 'PDF', desc: 'Digital PDF', color: 'bg-red-50 text-red-700 border-red-200' },
-          { ext: 'Scanned', desc: 'Scanned PDF', color: 'bg-orange-50 text-orange-700 border-orange-200' },
-          { ext: 'Image', desc: 'JPG / PNG', color: 'bg-blue-50 text-blue-700 border-blue-200' },
-          { ext: 'TXT', desc: 'Plain Text', color: 'bg-green-50 text-green-700 border-green-200' },
-        ].map(({ ext, desc, color }) => (
-          <div key={ext} className={`border rounded-lg p-3 text-center ${color}`}>
-            <p className="font-bold text-sm">{ext}</p>
-            <p className="text-xs mt-0.5">{desc}</p>
+          { ext: 'PDF', desc: 'Digital PDF', color: 'text-red-400', bg: 'bg-red-900/20', border: 'border-red-800/30' },
+          { ext: 'JPG', desc: 'JPEG Image', color: 'text-yellow-400', bg: 'bg-yellow-900/20', border: 'border-yellow-800/30' },
+          { ext: 'PNG', desc: 'PNG Image', color: 'text-blue-400', bg: 'bg-blue-900/20', border: 'border-blue-800/30' },
+          { ext: 'TXT', desc: 'Text File', color: 'text-emerald-400', bg: 'bg-emerald-900/20', border: 'border-emerald-800/30' },
+        ].map((f) => (
+          <div key={f.ext} className={`card p-3 text-center border ${f.border} ${f.bg}`}>
+            <p className={`font-black text-base ${f.color}`}>{f.ext}</p>
+            <p className="text-slate-600 text-xs mt-0.5">{f.desc}</p>
           </div>
         ))}
       </div>
 
-      {/* Offer name */}
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-slate-700 mb-1">
-          Offer Name <span className="text-slate-400">(optional)</span>
-        </label>
-        <input
-          className="input"
-          placeholder="e.g. Toyota Dealer Offer June 2025"
-          value={offerName}
-          onChange={(e) => setOfferName(e.target.value)}
-        />
-      </div>
-
       {/* What happens next */}
-      <div className="card p-4 mb-6 bg-blue-50 border-blue-200">
-        <h3 className="text-sm font-semibold text-blue-900 mb-2">
+      <div className="card p-5 mt-4">
+        <h3 className="font-bold text-white mb-3 flex items-center gap-2">
+          <Zap size={16} className="text-purple-400" />
           What happens after upload?
         </h3>
-        <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
-          <li>OCR extracts text from your document</li>
-          <li>Gemini AI identifies all key contract fields</li>
-          <li>Red flags and fairness score are calculated</li>
-          <li>Plain language summary is generated</li>
-          <li>You get a full breakdown in ~30 seconds</li>
-        </ol>
+        <div className="space-y-2">
+          {[
+            { step: '1', text: 'OCR extracts text from your document' },
+            { step: '2', text: 'Gemini AI analyzes all contract clauses' },
+            { step: '3', text: 'Fairness score and red flags are calculated' },
+            { step: '4', text: 'AI chatbot is ready to answer your questions' },
+          ].map((item) => (
+            <div key={item.step} className="flex items-center gap-3">
+              <span className="w-6 h-6 bg-purple-900/40 border border-purple-800/40 rounded-lg flex items-center justify-center text-xs font-bold text-purple-400 shrink-0">
+                {item.step}
+              </span>
+              <p className="text-sm text-slate-400">{item.text}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
+      {/* Upload button */}
       <button
         onClick={handleUpload}
         disabled={!file || uploading}
-        className="btn-primary w-full justify-center py-3 text-base"
+        className="w-full btn-primary justify-center py-4 mt-6 text-base"
       >
-        {uploading
-          ? <><Spinner className="text-white" /> Uploading & Analyzing...</>
-          : <><FileText size={18} /> Analyze Contract</>
-        }
+        {uploading ? (
+          <span className="flex items-center gap-2 justify-center">
+            <Spinner className="text-white" /> Uploading...
+          </span>
+        ) : (
+          <span className="flex items-center gap-2 justify-center">
+            <FileText size={18} /> Analyze Contract
+          </span>
+        )}
       </button>
+
     </div>
   )
 }

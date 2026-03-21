@@ -1,6 +1,6 @@
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, AlertTriangle, MessageSquare, RefreshCw, Lightbulb, FileText, Trash2 } from 'lucide-react'
+import { ArrowLeft, AlertTriangle, MessageSquare, RefreshCw, Lightbulb, FileText, Trash2, Shield } from 'lucide-react'
 import { contractsApi, negotiationApi } from '../api'
 import FairnessScore from '../components/ui/FairnessScore'
 import Spinner from '../components/ui/Spinner'
@@ -12,45 +12,35 @@ const fmt = (val?: number | null, prefix = '$') =>
   val != null ? `${prefix}${val.toLocaleString()}` : '—'
 
 const SLARow = ({ label, value }: { label: string; value: string }) => (
-  <div className="flex justify-between items-center py-3 border-b border-slate-100 last:border-0">
+  <div className="flex justify-between items-center py-3 border-b border-purple-900/20 last:border-0">
     <span className="text-sm text-slate-500">{label}</span>
-    <span className="text-sm font-medium text-slate-900">{value}</span>
+    <span className="text-sm font-semibold text-slate-200">{value}</span>
   </div>
 )
 
-// Simple markdown renderer — no external library needed
 const SimpleMarkdown = ({ text, className = '' }: { text: string; className?: string }) => {
   const lines = text.split('\n')
   return (
     <div className={className}>
       {lines.map((line, i) => {
-        // Bold: **text**
-        const boldLine = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        // Headers: ## text
-        if (line.startsWith('### ')) {
-          return <p key={i} className="font-bold text-base mt-2 mb-1" dangerouslySetInnerHTML={{ __html: line.replace('### ', '') }} />
-        }
-        if (line.startsWith('## ')) {
-          return <p key={i} className="font-bold text-base mt-2 mb-1" dangerouslySetInnerHTML={{ __html: line.replace('## ', '') }} />
+        const boldLine = line.replace(/\*\*(.*?)\*\*/g, '<strong style="color:#c4b5fd">$1</strong>')
+        const italicBoldLine = boldLine.replace(/\*(.*?)\*/g, '<em>$1</em>')
+        if (line.startsWith('### ') || line.startsWith('## ')) {
+          return <p key={i} className="font-bold text-purple-300 text-base mt-3 mb-1" dangerouslySetInnerHTML={{ __html: line.replace(/^#{2,3} /, '') }} />
         }
         if (line.startsWith('# ')) {
-          return <p key={i} className="font-bold text-lg mt-2 mb-1" dangerouslySetInnerHTML={{ __html: line.replace('# ', '') }} />
+          return <p key={i} className="font-bold text-purple-300 text-lg mt-3 mb-1" dangerouslySetInnerHTML={{ __html: line.replace('# ', '') }} />
         }
-        // Bullet points: - text or • text
-        if (line.startsWith('- ') || line.startsWith('• ')) {
+        if (line.match(/^[\s]*[\*\-•] /)) {
           return (
             <div key={i} className="flex items-start gap-2 my-0.5">
-              <span className="mt-1 shrink-0">•</span>
-              <span dangerouslySetInnerHTML={{ __html: boldLine.replace(/^[-•] /, '') }} />
+              <span className="text-purple-400 shrink-0 mt-1">•</span>
+              <span dangerouslySetInnerHTML={{ __html: italicBoldLine.replace(/^[\s]*[\*\-•] /, '') }} />
             </div>
           )
         }
-        // Empty line
-        if (line.trim() === '') {
-          return <div key={i} className="h-2" />
-        }
-        // Normal line
-        return <p key={i} className="my-0.5" dangerouslySetInnerHTML={{ __html: boldLine }} />
+        if (line.trim() === '') return <div key={i} className="h-2" />
+        return <p key={i} className="my-0.5" dangerouslySetInnerHTML={{ __html: italicBoldLine }} />
       })}
     </div>
   )
@@ -148,20 +138,19 @@ export default function ContractDetailPage() {
   }
 
   return (
-    <div className="p-8 max-w-5xl mx-auto">
+    <div className="max-w-5xl mx-auto px-6 py-8">
+
       {/* Header */}
       <div className="flex items-center gap-4 mb-6">
-        <Link to="/contracts" className="p-2 rounded-lg hover:bg-slate-100 transition-colors">
+        <Link to="/contracts" className="p-2 rounded-xl hover:bg-purple-900/30 text-slate-400 hover:text-white transition-all">
           <ArrowLeft size={18} />
         </Link>
         <div className="flex-1">
-          <h1 className="text-xl font-bold text-slate-900">
+          <h1 className="text-xl font-bold text-white">
             {contract.dealer_offer_name || `Contract #${contract.id}`}
           </h1>
           <div className="flex items-center gap-2 mt-0.5">
-            <span className="text-sm text-slate-400">
-              {contract.contract_type?.toUpperCase() ?? 'UNKNOWN'}
-            </span>
+            <span className="text-sm text-slate-500 uppercase">{contract.contract_type ?? 'UNKNOWN'}</span>
             <span className={`badge-${contract.doc_status === 'extracted' ? 'green' : contract.doc_status === 'failed' ? 'red' : 'yellow'}`}>
               {contract.doc_status}
             </span>
@@ -170,65 +159,57 @@ export default function ContractDetailPage() {
         <button onClick={handleRefresh} className="btn-secondary">
           <RefreshCw size={14} /> Refresh
         </button>
-        <button
-          onClick={handleDelete}
-          disabled={deleting}
-          className="btn-secondary text-red-500 hover:bg-red-50"
-        >
-          {deleting ? <Spinner className="w-4 h-4" /> : <Trash2 size={14} />}
-          Delete
+        <button onClick={handleDelete} disabled={deleting} className="btn-secondary text-red-400 hover:bg-red-900/20">
+          {deleting ? <Spinner className="w-4 h-4" /> : <Trash2 size={14} />} Delete
         </button>
       </div>
 
-      {/* Processing state */}
+      {/* Processing */}
       {isProcessing && (
-        <div className="card p-8 text-center mb-6">
-          <Spinner className="mx-auto mb-3 text-primary-600 w-8 h-8" />
-          <h3 className="font-semibold text-slate-700">Analyzing your contract...</h3>
-          <p className="text-slate-400 text-sm mt-1">
-            AI is extracting contract details. This takes ~30 seconds.
-          </p>
+        <div className="card p-10 text-center mb-6">
+          <Spinner className="mx-auto mb-4 text-purple-500 w-10 h-10" />
+          <h3 className="font-bold text-white text-lg">Analyzing your contract...</h3>
+          <p className="text-slate-500 text-sm mt-2">AI is extracting contract details. This takes ~30 seconds.</p>
         </div>
       )}
 
       {contract.doc_status === 'failed' && (
-        <div className="card p-6 mb-6 border-red-200 bg-red-50">
-          <p className="text-red-700 font-medium">
-            ❌ Extraction failed. Try re-uploading the document.
-          </p>
+        <div className="card p-6 mb-6 border-red-800/50 bg-red-900/20">
+          <p className="text-red-400 font-medium">❌ Extraction failed. Try re-uploading the document.</p>
         </div>
       )}
 
       {sla && (
-        <div className="space-y-6">
+        <div className="space-y-5">
 
-          {/* Plain Language Summary */}
+          {/* Plain Summary */}
           {contract.notes && (
-            <div className="card p-6 bg-blue-50 border-blue-200">
+            <div className="card p-6 border-purple-800/40 bg-purple-900/10">
               <div className="flex items-center gap-2 mb-3">
-                <FileText size={18} className="text-blue-600" />
-                <h3 className="font-semibold text-blue-900">Plain Language Summary</h3>
+                <FileText size={18} className="text-purple-400" />
+                <h3 className="font-bold text-purple-300">Plain Language Summary</h3>
               </div>
-              <p className="text-blue-800 text-sm leading-relaxed">{contract.notes}</p>
+              <p className="text-slate-400 text-sm leading-relaxed">{contract.notes}</p>
             </div>
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Fairness Score */}
+          {/* Score + Financial */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             <div className="card p-6 flex flex-col items-center text-center">
-              <h3 className="font-semibold text-slate-700 mb-4">Fairness Score</h3>
+              <div className="w-10 h-10 bg-purple-900/40 rounded-xl flex items-center justify-center mb-3">
+                <Shield size={20} className="text-purple-400" />
+              </div>
+              <h3 className="font-bold text-slate-300 mb-4">Fairness Score</h3>
               <FairnessScore score={contract.fairness_score ?? 50} size="lg" />
               {contract.red_flag_level === 'high' && (
-                <div className="mt-4 flex items-center gap-2 text-red-600 text-sm">
-                  <AlertTriangle size={16} />
-                  Red flags detected
+                <div className="mt-4 flex items-center gap-2 text-red-400 text-sm bg-red-900/20 px-3 py-1.5 rounded-xl border border-red-800/30">
+                  <AlertTriangle size={14} /> High Risk
                 </div>
               )}
             </div>
 
-            {/* Financial Terms */}
             <div className="card p-6 lg:col-span-2">
-              <h3 className="font-semibold text-slate-900 mb-2">Financial Terms</h3>
+              <h3 className="font-bold text-white mb-3">💰 Financial Terms</h3>
               <SLARow label="Contract Type" value={contract.contract_type?.toUpperCase() ?? '—'} />
               <SLARow label="Monthly Payment" value={fmt(sla.monthly_payment)} />
               <SLARow label="Down Payment" value={fmt(sla.down_payment)} />
@@ -240,59 +221,39 @@ export default function ContractDetailPage() {
               <SLARow label="Residual Value" value={fmt(sla.residual_value)} />
               <SLARow label="Total Fees" value={fmt(sla.fees_total)} />
             </div>
+          </div>
 
-            {/* Mileage & Penalties */}
-            <div className="card p-6">
-              <h3 className="font-semibold text-slate-900 mb-2">Mileage & Penalties</h3>
-              <SLARow label="Annual Mileage" value={sla.mileage_allowance_yr ? `${sla.mileage_allowance_yr.toLocaleString()} mi` : '—'} />
-              <SLARow label="Overage Fee" value={sla.mileage_overage_fee ? `$${sla.mileage_overage_fee}/mi` : '—'} />
-              <SLARow label="Early Termination" value={fmt(sla.early_termination_fee)} />
-              <SLARow label="Disposition Fee" value={fmt(sla.disposition_fee)} />
-              <SLARow label="Purchase Option" value={fmt(sla.purchase_option_price)} />
-            </div>
-
-            {/* Other Terms */}
-            <div className="card p-6 lg:col-span-2">
-              <h3 className="font-semibold text-slate-900 mb-2">Other Terms</h3>
-              {sla.insurance_requirements && (
-                <div className="mb-3">
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Insurance</p>
-                  <p className="text-sm text-slate-700">{sla.insurance_requirements}</p>
+          {/* Mileage */}
+          <div className="card p-6">
+            <h3 className="font-bold text-white mb-3">🛣️ Mileage & Penalties</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {[
+                { label: 'Annual Mileage', value: sla.mileage_allowance_yr ? `${sla.mileage_allowance_yr.toLocaleString()} mi` : '—' },
+                { label: 'Overage Fee', value: sla.mileage_overage_fee ? `$${sla.mileage_overage_fee}/mi` : '—' },
+                { label: 'Early Termination', value: fmt(sla.early_termination_fee) },
+                { label: 'Disposition Fee', value: fmt(sla.disposition_fee) },
+                { label: 'Purchase Option', value: fmt(sla.purchase_option_price) },
+              ].map(({ label, value }) => (
+                <div key={label} className="bg-[#16213e] rounded-xl p-3 border border-purple-900/20">
+                  <p className="text-xs text-slate-500 mb-1">{label}</p>
+                  <p className="font-semibold text-slate-200 text-sm">{value}</p>
                 </div>
-              )}
-              {sla.maintenance_resp && (
-                <div className="mb-3">
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Maintenance</p>
-                  <p className="text-sm text-slate-700">{sla.maintenance_resp}</p>
-                </div>
-              )}
-              {sla.warranty_summary && (
-                <div className="mb-3">
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Warranty</p>
-                  <p className="text-sm text-slate-700">{sla.warranty_summary}</p>
-                </div>
-              )}
-              {sla.late_fee_policy && (
-                <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Late Fee Policy</p>
-                  <p className="text-sm text-slate-700">{sla.late_fee_policy}</p>
-                </div>
-              )}
+              ))}
             </div>
           </div>
 
           {/* Negotiation Points */}
           {negotiationPoints.length > 0 && (
             <div className="card p-6">
-              <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                <Lightbulb size={18} className="text-yellow-500" />
+              <h3 className="font-bold text-white mb-4 flex items-center gap-2">
+                <Lightbulb size={18} className="text-yellow-400" />
                 Negotiation Suggestions ({negotiationPoints.length})
               </h3>
               <div className="space-y-2">
                 {negotiationPoints.map((point, i) => (
-                  <div key={i} className="flex items-start gap-3 p-3 bg-yellow-50 rounded-lg border border-yellow-100">
-                    <span className="text-yellow-600 font-bold text-sm shrink-0">{i + 1}.</span>
-                    <p className="text-sm text-yellow-800">{point}</p>
+                  <div key={i} className="flex items-start gap-3 p-3 bg-yellow-900/20 rounded-xl border border-yellow-800/30">
+                    <span className="text-yellow-400 font-bold text-sm shrink-0 w-6 h-6 bg-yellow-900/40 rounded-lg flex items-center justify-center">{i + 1}</span>
+                    <p className="text-sm text-yellow-200">{point}</p>
                   </div>
                 ))}
               </div>
@@ -302,22 +263,18 @@ export default function ContractDetailPage() {
           {/* Red Flags */}
           {clauses && clauses.length > 0 && (
             <div className="card p-6">
-              <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                <AlertTriangle size={18} className="text-red-500" />
-                Red Flags & Concerns ({clauses.length})
+              <h3 className="font-bold text-white mb-4 flex items-center gap-2">
+                <AlertTriangle size={18} className="text-red-400" />
+                Red Flags ({clauses.length})
               </h3>
               <div className="space-y-2">
                 {clauses.map((clause) => (
-                  <div key={clause.id} className="flex items-start gap-3 p-3 bg-red-50 rounded-lg border border-red-100">
-                    <AlertTriangle size={15} className="text-red-500 mt-0.5 shrink-0" />
+                  <div key={clause.id} className="flex items-start gap-3 p-3 bg-red-900/20 rounded-xl border border-red-800/30">
+                    <AlertTriangle size={14} className="text-red-400 mt-0.5 shrink-0" />
                     <div>
-                      <p className="text-sm font-medium text-red-800">
-                        {clause.clause_type?.replace('_', ' ').toUpperCase()}
-                      </p>
-                      <p className="text-sm text-red-700 mt-0.5">{clause.text_snippet}</p>
-                      {clause.comment && (
-                        <p className="text-xs text-red-500 mt-1 italic">{clause.comment}</p>
-                      )}
+                      <p className="text-sm font-semibold text-red-300">{clause.clause_type?.replace('_', ' ').toUpperCase()}</p>
+                      <p className="text-sm text-red-400 mt-0.5">{clause.text_snippet}</p>
+                      {clause.comment && <p className="text-xs text-red-500 mt-1 italic">{clause.comment}</p>}
                     </div>
                   </div>
                 ))}
@@ -327,12 +284,11 @@ export default function ContractDetailPage() {
 
           {/* Chatbot */}
           <div className="card p-6">
-            <h3 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
-              <MessageSquare size={18} className="text-primary-600" />
+            <h3 className="font-bold text-white mb-4 flex items-center gap-2">
+              <MessageSquare size={18} className="text-purple-400" />
               Ask About This Contract
             </h3>
 
-            {/* Starter questions */}
             {messages.length === 0 && (
               <div className="flex flex-wrap gap-2 mb-4">
                 {[
@@ -344,7 +300,7 @@ export default function ContractDetailPage() {
                   <button
                     key={q}
                     onClick={() => sendChat(q)}
-                    className="px-3 py-1.5 bg-slate-100 hover:bg-primary-50 hover:text-primary-700 border border-slate-200 rounded-full text-sm text-slate-600 transition-colors"
+                    className="px-3 py-1.5 bg-purple-900/30 hover:bg-purple-900/50 border border-purple-800/40 rounded-full text-sm text-purple-300 transition-all"
                   >
                     {q}
                   </button>
@@ -352,14 +308,13 @@ export default function ContractDetailPage() {
               </div>
             )}
 
-            {/* Messages */}
             <div className="space-y-3 mb-4 max-h-96 overflow-y-auto">
               {messages.map((msg) => (
                 <div key={msg.id} className={`flex gap-2 ${msg.sender_role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[85%] rounded-xl px-4 py-3 text-sm ${
+                  <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${
                     msg.sender_role === 'user'
-                      ? 'bg-primary-600 text-white'
-                      : 'bg-slate-100 text-slate-800'
+                      ? 'bg-purple-600 text-white rounded-tr-sm'
+                      : 'bg-[#16213e] text-slate-300 border border-purple-900/30 rounded-tl-sm'
                   }`}>
                     {msg.sender_role === 'user' ? (
                       <p>{msg.body}</p>
@@ -367,9 +322,9 @@ export default function ContractDetailPage() {
                       <SimpleMarkdown text={msg.body} className="text-sm" />
                     )}
                     {msg.suggested_text && (
-                      <div className="mt-3 p-3 bg-green-100 rounded-lg border border-green-200">
-                        <p className="text-xs font-semibold text-green-700 mb-1">📨 Suggested dealer message:</p>
-                        <SimpleMarkdown text={msg.suggested_text} className="text-xs text-green-800" />
+                      <div className="mt-3 p-3 bg-emerald-900/30 rounded-xl border border-emerald-800/30">
+                        <p className="text-xs font-semibold text-emerald-400 mb-1">📨 Suggested dealer message:</p>
+                        <SimpleMarkdown text={msg.suggested_text} className="text-xs text-emerald-300" />
                       </div>
                     )}
                   </div>
@@ -377,14 +332,13 @@ export default function ContractDetailPage() {
               ))}
               {chatLoading && (
                 <div className="flex justify-start">
-                  <div className="bg-slate-100 rounded-xl px-4 py-2.5">
-                    <Spinner className="text-primary-600" />
+                  <div className="bg-[#16213e] border border-purple-900/30 rounded-2xl px-4 py-3">
+                    <Spinner className="text-purple-400" />
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Input */}
             <div className="flex gap-2">
               <input
                 className="input flex-1"
@@ -392,17 +346,14 @@ export default function ContractDetailPage() {
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
-                    sendChat(chatInput)
-                  }
+                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(chatInput) }
                 }}
                 disabled={chatLoading}
               />
               <button
                 onClick={() => sendChat(chatInput)}
                 disabled={!chatInput.trim() || chatLoading}
-                className="btn-primary px-4"
+                className="btn-primary px-5"
               >
                 Send
               </button>
